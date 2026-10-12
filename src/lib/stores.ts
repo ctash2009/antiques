@@ -29,6 +29,7 @@ export type StoreDetail = StoreCard & {
   latitude: number | null;
   longitude: number | null;
   workingHours: Record<string, string[]> | null;
+  workingHoursCsv: string | null;
   subtypes: string | null;
   businessModel: string | null;
   buysAntiques: boolean | null;
@@ -127,8 +128,8 @@ export async function getStoreById(id: number): Promise<StoreDetail | null> {
     `select id, name, city, state_code, category, subtypes, primary_specialty,
             rating, reviews, enrichment_status, enrichment_confidence, photo,
             address, street, postal_code, phone, website, latitude, longitude,
-            working_hours, business_model, buys_antiques, buying_model,
-            enriched_description, description
+            working_hours, working_hours_csv_compatible, business_model,
+            buys_antiques, buying_model, enriched_description, description
      from stores
      where id = $1 and ${CORE_FIELDS_OK}`,
     [id],
@@ -145,6 +146,7 @@ export async function getStoreById(id: number): Promise<StoreDetail | null> {
     latitude: row.latitude !== null ? Number(row.latitude) : null,
     longitude: row.longitude !== null ? Number(row.longitude) : null,
     workingHours: row.working_hours ?? null,
+    workingHoursCsv: row.working_hours_csv_compatible ?? null,
     subtypes: row.subtypes ?? null,
     businessModel: row.business_model ?? null,
     buysAntiques: row.buys_antiques ?? null,
@@ -171,15 +173,20 @@ export async function getAllCities(): Promise<
 }
 
 // Minimal fields for every addressable listing -- drives the sitemap's
-// listing-level entries.
-export async function getAllStoreSlugs(): Promise<
-  { id: number; name: string; city: string; stateCode: string; updatedAt: Date }[]
-> {
+// listing-level entries. Paged (ordered by id) so the sitemap can fetch
+// fixed-size chunks rather than all ~35k rows at once.
+export async function getAllStoreSlugs(
+  opts: { offset?: number; limit?: number } = {},
+): Promise<{ id: number; name: string; city: string; stateCode: string; updatedAt: Date }[]> {
   const pool = getPool();
+  const { offset = 0, limit } = opts;
   const { rows } = await pool.query(
     `select id, name, city, state_code, updated_at
      from stores
-     where ${CORE_FIELDS_OK}`,
+     where ${CORE_FIELDS_OK}
+     order by id
+     ${limit !== undefined ? "limit $2 offset $1" : "offset $1"}`,
+    limit !== undefined ? [offset, limit] : [offset],
   );
   return rows.map((r) => ({
     id: r.id as number,

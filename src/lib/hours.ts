@@ -1,85 +1,95 @@
-// Parses the scraped `working_hours` shape (e.g. {"Monday": ["12-8PM"]}) into
-// schema.org OpeningHoursSpecification entries for JSON-LD. Best-effort: any
-// day whose string doesn't match a recognized pattern is silently dropped
-// rather than risk emitting wrong structured data.
-const DAY_URI: Record<string, string> = {
-  Monday: "https://schema.org/Monday",
-  Tuesday: "https://schema.org/Tuesday",
-  Wednesday: "https://schema.org/Wednesday",
-  Thursday: "https://schema.org/Thursday",
-  Friday: "https://schema.org/Friday",
-  Saturday: "https://schema.org/Saturday",
-  Sunday: "https://schema.org/Sunday",
+// Turns the scrape pipeline's `working_hours_csv_compatible` field (e.g.
+// "Sunday,11AM,5PM|Monday,12,8PM|...") into schema.org OpeningHoursSpecification
+// entries. Deliberately conservative: a day is included only when both the
+// open and close time can be resolved with confidence. Bad structured data
+// (wrong hours asserted as fact) is worse than missing data, so an ambiguous
+// day -- most commonly a bare number with no AM/PM on the open side, e.g.
+// "12,8PM" -- is only resolved when it's the one case that's unambiguous in
+// context (12 paired with a PM close means noon); everything else is
+// dropped rather than guessed. The free-text `working_hours` field is still
+// shown to visitors as-is; this is only for the JSON-LD.
+
+export type OpeningHours = {
+  dayOfWeek: string; // schema.org day URL, e.g. "https://schema.org/Monday"
+  opens: string; // "HH:MM" 24h
+  closes: string; // "HH:MM" 24h
 };
 
-const RANGE_RE = /^(\d{1,2})(AM|PM)?-(\d{1,2})(AM|PM)?$/i;
+const DAY_URL: Record<string, string> = {
+  monday: "https://schema.org/Monday",
+  tuesday: "https://schema.org/Tuesday",
+  wednesday: "https://schema.org/Wednesday",
+  thursday: "https://schema.org/Thursday",
+  friday: "https://schema.org/Friday",
+  saturday: "https://schema.org/Saturday",
+  sunday: "https://schema.org/Sunday",
+};
 
-// "8" + meridiem -> 24h "HH:MM". Hour 12 with no meridiem defaults to noon
-// (retail convention), never midnight.
-function to24h(hour: number, meridiem: string | undefined): string {
-  let h = hour % 12;
-  if ((meridiem ?? "PM").toUpperCase() === "PM") h += 12;
-  return `${String(h).padStart(2, "0")}:00`;
+const TIME_RE = /^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/i;
+
+type ParsedToken = { hour: number; minute: number; meridiem: "AM" | "PM" | null };
+
+function parseToken(raw: string): ParsedToken | null {
+  const m = raw.trim().match(TIME_RE);
+  if (!m) return null;
+  const hour = Number(m[1]);
+  if (hour < 1 || hour > 12) return null;
+  return {
+    hour,
+    minute: m[2] ? Number(m[2]) : 0,
+    meridiem: (m[3]?.toUpperCase() as "AM" | "PM" | undefined) ?? null,
+  };
 }
 
-export type OpeningHoursSpec = {
-  "@type": "OpeningHoursSpecification";
-  dayOfWeek: string;
-  opens: string;
-  closes: string;
-};
+function to24h(hour: number, minute: number, meridiem: "AM" | "PM"): string {
+  let h = hour % 12;
+  if (meridiem === "PM") h += 12;
+  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
 
-export function parseOpeningHours(
-  workingHours: Record<string, string[]> | null,
-): OpeningHoursSpec[] {
-  if (!workingHours) return [];
-  const specs: OpeningHoursSpec[] = [];
+function resolvePair(openRaw: string, closeRaw: string): { opens: string; closes: string } | null {
+  const open = parseToken(openRaw);
+  const close = parseToken(closeRaw);
+  if (!open || !close) return null;
 
-  for (const [day, entries] of Object.entries(workingHours)) {
-    const dayUri = DAY_URI[day];
-    if (!dayUri || !entries) continue;
+  // Close side must be explicit -- we don't guess a closing meridiem.
+  if (!close.meridiem) return null;
 
-    for (const entry of entries) {
-      const normalized = entry.replace(/\s+/g, "");
-      const match = normalized.match(RANGE_RE);
-      if (!match) continue; // e.g. "Closed", "Open 24 hours" -- skip rather than guess
-
-      const [, openHour, openMeridiem, closeHour, closeMeridiem] = match;
-      // If only one side specifies AM/PM, the other inherits it (how Google's
-      // scraped format is usually written, e.g. "12-8PM" means 12PM-8PM).
-      const inferredOpenMeridiem = openMeridiem ?? closeMeridiem;
-      const inferredCloseMeridiem = closeMeridiem ?? openMeridiem;
-
-      specs.push({
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: dayUri,
-        opens: to24h(Number(openHour), inferredOpenMeridiem),
-        closes: to24h(Number(closeHour), inferredCloseMeridiem),
-      });
+  let openMeridiem = open.meridiem;
+  if (!openMeridiem) {
+    // The only unambiguous inference: a bare "12" opening paired with a PM
+    // close means noon. Anything else bare (e.g. a bare "9") is a genuine
+    // guess between AM and PM -- skip rather than assert it.
+    if (open.hour === 12 && close.meridiem === "PM") {
+      openMeridiem = "PM";
+    } else {
+      return null;
     }
   }
 
-  return specs;
+  return {
+    opens: to24h(open.hour, open.minute, openMeridiem),
+    closes: to24h(close.hour, close.minute, close.meridiem),
+  };
 }
 
-// Human-readable list for the UI, in canonical week order. Unlike the JSON-LD
-// parser, this never drops a day -- it shows whatever the source string says.
-const WEEK_ORDER = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+export function parseWorkingHoursCsv(csv: string | null | undefined): OpeningHours[] {
+  if (!csv) return [];
+  const results: OpeningHours[] = [];
 
-export function formatWeeklyHours(
-  workingHours: Record<string, string[]> | null,
-): { day: string; hours: string }[] {
-  if (!workingHours) return [];
-  return WEEK_ORDER.filter((day) => workingHours[day]).map((day) => ({
-    day,
-    hours: workingHours[day].join(", "),
-  }));
+  for (const dayGroup of csv.split("|")) {
+    const parts = dayGroup.split(",").map((p) => p.trim());
+    if (parts.length < 3) continue;
+    const [dayRaw, openRaw, closeRaw] = parts;
+    const dayUrl = DAY_URL[dayRaw.toLowerCase()];
+    if (!dayUrl) continue;
+    if (/closed/i.test(openRaw) || /closed/i.test(closeRaw)) continue;
+
+    const resolved = resolvePair(openRaw, closeRaw);
+    if (!resolved) continue;
+
+    results.push({ dayOfWeek: dayUrl, ...resolved });
+  }
+
+  return results;
 }

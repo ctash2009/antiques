@@ -3,8 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { stateBySlug } from "@/lib/geo";
 import { getStoresForCity } from "@/lib/stores";
-import { getSiteUrl, jsonLdScript } from "@/lib/site";
+import { breadcrumbJsonLd, storeListJsonLd } from "@/lib/jsonld";
+import { JsonLd } from "@/components/JsonLd";
+import { StoreCard } from "@/components/StoreCard";
 
+// Cities are not prerendered at build time (9,769 state+city combinations
+// is too many for build-time generation to be practical) -- each one is
+// rendered on first visit and cached for `revalidate` seconds (ISR).
 export const revalidate = 3600;
 
 type Props = { params: Promise<{ state: string; city: string }> };
@@ -17,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!result) return {};
   return {
     title: `Antique Stores in ${result.cityName}, ${state.code}`,
-    description: `Find antique shops, vintage dealers, and collectibles stores near you in ${result.cityName}, ${state.name}. ${result.stores.length} listed.`,
+    description: `Find antique shops and vintage dealers near you in ${result.cityName}, ${state.name}. ${result.stores.length} stores listed.`,
   };
 }
 
@@ -30,43 +35,22 @@ export default async function CityPage({ params }: Props) {
   if (!result) notFound();
   const { cityName, stores } = result;
 
-  const siteUrl = getSiteUrl();
-  const pageUrl = `${siteUrl}/${state.slug}/${citySlug}`;
-
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    name: `Antique Stores in ${cityName}, ${state.code}`,
-    url: pageUrl,
-    numberOfItems: stores.length,
-    itemListElement: stores.map((s, i) => ({
-      "@type": "ListItem",
-      position: i + 1,
-      url: `${siteUrl}/${state.slug}/${citySlug}/${s.slug}`,
-      item: {
-        "@type": "AntiqueStore",
-        name: s.name,
-        address: {
-          "@type": "PostalAddress",
-          addressLocality: cityName,
-          addressRegion: state.code,
-          addressCountry: "US",
-        },
-      },
-    })),
-  };
-
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "All States", path: "/" },
+          { name: state.name, path: `/${state.slug}` },
+          { name: cityName, path: `/${state.slug}/${citySlug}` },
+        ])}
       />
-      <nav className="flex gap-2 text-sm text-stone-500">
+      <JsonLd data={storeListJsonLd(stores, cityName, state.code)} />
+
+      <nav className="text-sm text-stone-500">
         <Link href="/" className="hover:underline">
           All States
-        </Link>
-        <span>/</span>
+        </Link>{" "}
+        /{" "}
         <Link href={`/${state.slug}`} className="hover:underline">
           {state.name}
         </Link>
@@ -75,42 +59,19 @@ export default async function CityPage({ params }: Props) {
         Antique Stores in {cityName}, {state.code}
       </h1>
       <p className="mt-2 text-stone-600">
-        {stores.length.toLocaleString()} {stores.length === 1 ? "store" : "stores"} found
-        near you in {cityName}.
+        {stores.length.toLocaleString()} {stores.length === 1 ? "store" : "stores"} near you in{" "}
+        {cityName}.
       </p>
 
-      <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+      <div className="mt-8 grid gap-3 sm:grid-cols-2">
         {stores.map((s) => (
-          <li key={s.id}>
-            <Link
-              href={`/${state.slug}/${citySlug}/${s.slug}`}
-              className="block rounded-lg border border-stone-200 bg-white p-4 hover:border-stone-300 hover:shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="font-medium text-stone-900">{s.name}</h2>
-                {s.rating !== null && (
-                  <span className="shrink-0 text-sm text-stone-500">
-                    ★ {s.rating.toFixed(1)}
-                    {s.reviews ? ` (${s.reviews})` : ""}
-                  </span>
-                )}
-              </div>
-              {s.primarySpecialty ? (
-                <p className="mt-1 text-sm text-stone-600 line-clamp-2">
-                  {s.primarySpecialty}
-                </p>
-              ) : s.category ? (
-                <p className="mt-1 text-sm text-stone-500">{s.category}</p>
-              ) : null}
-              {s.enrichmentStatus !== "enriched" && (
-                <p className="mt-2 text-xs text-amber-700">
-                  Basic listing -- details not yet verified
-                </p>
-              )}
-            </Link>
-          </li>
+          <StoreCard
+            key={s.id}
+            store={s}
+            href={`/${state.slug}/${citySlug}/${s.slug}`}
+          />
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
