@@ -36,28 +36,28 @@ export default async function StatePage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <nav className="text-sm text-stone-500">
-        <Link href="/" className="hover:underline">
-          All States
-        </Link>
+      <nav className="breadcrumb">
+        <Link href="/">All States</Link>
       </nav>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-stone-900">
+      <h1 className="mt-2" style={{ fontSize: "clamp(2rem, 4vw, 2.9rem)", fontWeight: 600 }}>
         Antique Stores in {state.name}
       </h1>
-      <p className="mt-2 text-stone-600">
+      <p className="mt-3" style={{ color: "var(--ink-soft)" }}>
         {totalInState.toLocaleString()} stores across {cities.length.toLocaleString()}{" "}
         {cities.length === 1 ? "city" : "cities"}.
       </p>
 
-      <ul className="mt-8 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 md:grid-cols-4">
+      <ul className="mt-10 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 md:grid-cols-4">
         {cities.map((c) => (
           <li key={c.slug}>
             <Link
               href={`/${state.slug}/${c.slug}`}
-              className="flex items-baseline justify-between gap-2 rounded px-2 py-1.5 text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+              className="geo-link flex items-baseline justify-between gap-2 rounded px-2 py-1.5"
             >
               <span>{c.city}</span>
-              <span className="text-xs text-stone-400">{c.count.toLocaleString()}</span>
+              <span className="mono text-xs" style={{ color: "var(--ink-faint)" }}>
+                {c.count.toLocaleString()}
+              </span>
             </Link>
           </li>
         ))}

@@ -1,26 +1,345 @@
 @import "tailwindcss";
 
+/* Design tokens -- ported from the approved Retrodelphia listing mockup.
+   Brass/verdigris/oxblood antique palette; Fraunces for display, Public
+   Sans for body, IBM Plex Mono for labels/data. Open a design-system
+   change here first; pages consume these tokens and component classes,
+   never hardcode a color. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #ece3d4;
+  --card: #f7f1e4;
+  --card-line: #e4d8c2;
+  --ink: #2b241e;
+  --ink-soft: #6b5f52;
+  --ink-faint: #948873;
+  --brass: #9c6f34;
+  --brass-ink: #5c3f19;
+  --verdigris: #3b5a48;
+  --verdigris-bg: #dde7de;
+  --oxblood: #7a3b32;
+  --oxblood-bg: #ecdcd7;
+  --line: rgba(43, 36, 30, 0.16);
+  --shadow: 0 1px 0 rgba(43, 36, 30, 0.06);
+  --radius: 3px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1b1611;
+    --card: #241d16;
+    --card-line: #3a2f23;
+    --ink: #ecdfc9;
+    --ink-soft: #b7a68d;
+    --ink-faint: #7d7261;
+    --brass: #d1a05e;
+    --brass-ink: #f0cf9c;
+    --verdigris: #7fae93;
+    --verdigris-bg: #25342c;
+    --oxblood: #c98276;
+    --oxblood-bg: #332320;
+    --line: rgba(236, 223, 201, 0.16);
+    --shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1b1611;
+  --card: #241d16;
+  --card-line: #3a2f23;
+  --ink: #ecdfc9;
+  --ink-soft: #b7a68d;
+  --ink-faint: #7d7261;
+  --brass: #d1a05e;
+  --brass-ink: #f0cf9c;
+  --verdigris: #7fae93;
+  --verdigris-bg: #25342c;
+  --oxblood: #c98276;
+  --oxblood-bg: #332320;
+  --line: rgba(236, 223, 201, 0.16);
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-card-line: var(--card-line);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-brass: var(--brass);
+  --color-brass-ink: var(--brass-ink);
+  --color-verdigris: var(--verdigris);
+  --color-oxblood: var(--oxblood);
+  --font-sans: var(--font-public-sans);
+  --font-serif: var(--font-fraunces);
+  --font-mono: var(--font-plex-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-public-sans), system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  text-wrap: balance;
+  margin: 0;
+  color: var(--ink);
+}
+a {
+  color: var(--brass-ink);
+}
+.mono {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- top bar / breadcrumb --- */
+.topbar {
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.wordmark {
+  font-family: var(--font-fraunces), serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.wordmark span {
+  color: var(--brass-ink);
+}
+.breadcrumb {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.breadcrumb a {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.breadcrumb a:hover {
+  color: var(--brass-ink);
+  text-decoration: underline;
+}
+.breadcrumb .sep {
+  color: var(--ink-faint);
+}
+
+/* --- eyebrow / badges (shared across cards and hero) --- */
+.eyebrow {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass-ink);
+}
+.stars {
+  color: var(--brass);
+  letter-spacing: 1px;
+}
+.badges {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.badge.buys {
+  background: var(--verdigris-bg);
+  color: var(--verdigris);
+  border-color: var(--verdigris);
+}
+.badge.appt {
+  background: var(--oxblood-bg);
+  color: var(--oxblood);
+  border-color: var(--oxblood);
+}
+.badge.plain {
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: var(--card-line);
+}
+.badge.unclear {
+  background: transparent;
+  color: var(--ink-faint);
+  border-color: var(--card-line);
+  border-style: dashed;
+}
+
+/* --- cards: used for listing grids (city page) and detail sections --- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.card-link {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  transition: border-color 0.15s ease;
+}
+.card-link:hover {
+  border-color: var(--brass);
+}
+.sell-card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-left: 4px solid var(--verdigris);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.sell-card .quote {
+  margin-top: 12px;
+  font-style: italic;
+  color: var(--ink);
+  border-left: 2px solid var(--card-line);
+  padding-left: 12px;
+}
+
+/* specialty tags */
+.tag {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  border: 1px solid var(--card-line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--card);
+}
+
+/* photo strip placeholder tiles (no photo on file) */
+.photo-tile {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--card-line);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--brass) 14%, var(--card)) 0 2px,
+      transparent 2px 14px
+    ),
+    var(--card);
+}
+.photo-tile svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34%;
+  height: 34%;
+  color: var(--ink-faint);
+}
+
+/* sidebar */
+.sidebar-card {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.map-swatch {
+  height: 120px;
+  background:
+    linear-gradient(
+      0deg,
+      transparent 24%,
+      var(--card-line) 25%,
+      var(--card-line) 26%,
+      transparent 27%,
+      transparent 74%,
+      var(--card-line) 75%,
+      var(--card-line) 76%,
+      transparent 77%
+    ),
+    linear-gradient(
+      90deg,
+      transparent 24%,
+      var(--card-line) 25%,
+      var(--card-line) 26%,
+      transparent 27%,
+      transparent 74%,
+      var(--card-line) 75%,
+      var(--card-line) 76%,
+      transparent 77%
+    ),
+    color-mix(in srgb, var(--brass) 8%, var(--card));
+  background-size: 32px 32px;
+  position: relative;
+  border-bottom: 1px solid var(--card-line);
+}
+.map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -70%);
+  width: 20px;
+  height: 20px;
+  color: var(--oxblood);
+}
+.sidebar-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-family: var(--font-plex-mono), monospace;
+  font-weight: 500;
+}
+.hours-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 14px;
+  font-size: 0.86rem;
+}
+.hours-grid .day {
+  color: var(--ink-soft);
+}
+.hours-grid .time {
+  text-align: right;
+}
+.appt-note {
+  padding: 10px 12px;
+  background: var(--oxblood-bg);
+  color: var(--oxblood);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.divider {
+  height: 1px;
+  background: var(--line);
+}
+
+/* plain geo-hierarchy links (state/city lists) */
+.geo-link {
+  color: var(--ink);
+  text-decoration: none;
+}
+.geo-link:hover {
+  background: var(--card);
+  color: var(--brass-ink);
 }

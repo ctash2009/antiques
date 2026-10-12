@@ -37,6 +37,8 @@ export type StoreDetail = StoreCard & {
   enrichedDescription: string | null;
   description: string | null;
   enrichmentConfidence: string | null;
+  smallBusiness: boolean | null;
+  photosCount: number | null;
 };
 
 function toCard(row: Record<string, unknown>): StoreCard {
@@ -129,7 +131,8 @@ export async function getStoreById(id: number): Promise<StoreDetail | null> {
             rating, reviews, enrichment_status, enrichment_confidence, photo,
             address, street, postal_code, phone, website, latitude, longitude,
             working_hours, working_hours_csv_compatible, business_model,
-            buys_antiques, buying_model, enriched_description, description
+            buys_antiques, buying_model, enriched_description, description,
+            about_from_the_business_small_business, photos_count
      from stores
      where id = $1 and ${CORE_FIELDS_OK}`,
     [id],
@@ -154,6 +157,8 @@ export async function getStoreById(id: number): Promise<StoreDetail | null> {
     enrichedDescription: row.enriched_description ?? null,
     description: row.description ?? null,
     enrichmentConfidence: row.enrichment_confidence ?? null,
+    smallBusiness: row.about_from_the_business_small_business ?? null,
+    photosCount: row.photos_count ?? null,
   };
 }
 

@@ -46,24 +46,20 @@ export default async function CityPage({ params }: Props) {
       />
       <JsonLd data={storeListJsonLd(stores, cityName, state.code)} />
 
-      <nav className="text-sm text-stone-500">
-        <Link href="/" className="hover:underline">
-          All States
-        </Link>{" "}
-        /{" "}
-        <Link href={`/${state.slug}`} className="hover:underline">
-          {state.name}
-        </Link>
+      <nav className="breadcrumb">
+        <Link href="/">All States</Link>
+        <span className="sep">/</span>
+        <Link href={`/${state.slug}`}>{state.name}</Link>
       </nav>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-stone-900">
+      <h1 className="mt-2" style={{ fontSize: "clamp(2rem, 4vw, 2.9rem)", fontWeight: 600 }}>
         Antique Stores in {cityName}, {state.code}
       </h1>
-      <p className="mt-2 text-stone-600">
+      <p className="mt-3" style={{ color: "var(--ink-soft)" }}>
         {stores.length.toLocaleString()} {stores.length === 1 ? "store" : "stores"} near you in{" "}
         {cityName}.
       </p>
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+      <div className="mt-10 grid gap-3 sm:grid-cols-2">
         {stores.map((s) => (
           <StoreCard
             key={s.id}
