@@ -335,11 +335,229 @@ a {
 }
 
 /* plain geo-hierarchy links (state/city lists) */
+.geo-grid {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px 24px;
+}
+@media (max-width: 760px) {
+  .geo-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 .geo-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 3px;
   color: var(--ink);
   text-decoration: none;
 }
 .geo-link:hover {
   background: var(--card);
+  color: var(--brass-ink);
+}
+.geo-link .count {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+/* --- home page: search, section headers, teaser rows --- */
+.search-box {
+  margin-top: 28px;
+  display: flex;
+  gap: 10px;
+  max-width: 560px;
+}
+.search-box input {
+  flex: 1;
+  font: inherit;
+  font-size: 1rem;
+  padding: 13px 16px;
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+}
+.search-box input::placeholder {
+  color: var(--ink-faint);
+}
+.search-box button {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 13px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--brass);
+  background: var(--brass);
+  color: var(--paper);
+  cursor: pointer;
+}
+.search-hint {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+}
+
+.section-head {
+  margin-top: 56px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.section-head h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.section-head .note {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.section-head p.lede {
+  margin-top: 6px;
+  color: var(--ink-soft);
+  max-width: 66ch;
+}
+
+.mini-card-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 760px) {
+  .mini-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.mini-card {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  color: var(--ink);
+}
+.mini-card h3 {
+  margin-top: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.mini-card .loc {
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+}
+.mini-card .rating {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.specialty-row {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.specialty-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--card-line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink-soft);
+}
+.specialty-pill .count {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+/* --- state pillar page: stats, category bars --- */
+.stat-row {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 760px) {
+  .stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.stat-tile {
+  background: var(--card);
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.stat-tile .num {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.stat-tile .label {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.bar-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+  max-width: 640px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+.bar-row .name {
+  color: var(--ink);
+}
+.bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--card-line);
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: var(--brass);
+  border-radius: 4px;
+}
+.bar-row .count {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  text-align: right;
+}
+
+.browse-all {
+  margin-top: 16px;
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 0.82rem;
+}
+details.all-cities summary {
+  cursor: pointer;
+  color: var(--ink-faint);
+}
+details.all-cities summary:hover {
   color: var(--brass-ink);
 }

@@ -209,3 +209,186 @@ export async function getTotalStoreCount(): Promise<number> {
   );
   return Number(rows[0].count);
 }
+
+// Full-text search across name/city/state/specialty/category. Computed
+// on the fly (no persisted tsvector column or index) -- fine at this row
+// count with no real traffic yet; add a generated column + GIN index per
+// [[site_search_feature]] memory if this gets slow. State is matched by
+// full name, not the two-letter code, so "Austin TX" won't match on the
+// code today -- a known gap, not yet worth the complexity of also
+// indexing state_code.
+const SEARCH_VECTOR = `to_tsvector('english',
+  coalesce(name,'') || ' ' || coalesce(city,'') || ' ' || coalesce(state,'') || ' ' ||
+  coalesce(primary_specialty,'') || ' ' || coalesce(category,''))`;
+
+export async function searchStores(query: string, limit = 30): Promise<StoreCard[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select id, name, city, state_code, category, primary_specialty,
+            rating, reviews, enrichment_status, photo
+     from stores
+     where ${CORE_FIELDS_OK}
+       and ${SEARCH_VECTOR} @@ websearch_to_tsquery('english', $1)
+     order by ts_rank(${SEARCH_VECTOR}, websearch_to_tsquery('english', $1)) desc,
+              reviews desc nulls last
+     limit $2`,
+    [q, limit],
+  );
+  return rows.map(toCard);
+}
+
+export type StateStats = {
+  total: number;
+  enrichedCount: number;
+  cityCount: number;
+  buysOutrightCount: number;
+};
+
+export async function getStateStats(stateCode: string): Promise<StateStats> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select
+       count(*) as total,
+       count(*) filter (where enrichment_status = 'enriched') as enriched_count,
+       count(distinct city) as city_count,
+       count(*) filter (where buying_model = 'buys_outright') as buys_outright_count
+     from stores
+     where ${CORE_FIELDS_OK} and state_code = $1`,
+    [stateCode],
+  );
+  const r = rows[0];
+  return {
+    total: Number(r.total),
+    enrichedCount: Number(r.enriched_count),
+    cityCount: Number(r.city_count),
+    buysOutrightCount: Number(r.buys_outright_count),
+  };
+}
+
+// Top categories in the state as Google's own scrape categorized them --
+// "Antique store" is a catch-all, so this describes what's literally in
+// the data, not a curated specialty taxonomy (that's the Phase 2 work).
+export async function getStateCategoryBreakdown(
+  stateCode: string,
+  limit = 6,
+): Promise<{ category: string; count: number }[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select category, count(*) as count
+     from stores
+     where ${CORE_FIELDS_OK} and state_code = $1 and category is not null
+     group by category
+     order by count desc
+     limit $2`,
+    [stateCode, limit],
+  );
+  return rows.map((r) => ({ category: r.category as string, count: Number(r.count) }));
+}
+
+// Highest-rated stores, restricted to genuinely antique categories (not
+// just anything rating-adjacent -- an earlier pass surfaced a movie-prop
+// rental house and a Harley dealer here because they scored well in
+// collectibles-adjacent categories despite their own enrichment saying
+// outright they aren't antique stores). Returns [] rather than padding
+// with lower-confidence picks when a state doesn't have enough that clear
+// the bar -- several small states won't.
+export async function getStateFeaturedStores(
+  stateCode: string,
+  limit = 6,
+): Promise<StoreCard[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select id, name, city, state_code, category, primary_specialty,
+            rating, reviews, enrichment_status, photo
+     from stores
+     where ${CORE_FIELDS_OK} and state_code = $1
+       and enrichment_status = 'enriched'
+       and category in ('Antique store', 'Antique furniture store')
+       and rating is not null and reviews >= 10
+     order by rating desc, reviews desc
+     limit $2`,
+    [stateCode, limit],
+  );
+  return rows.map(toCard);
+}
+
+export type BuyingModelBreakdown = {
+  buysOutright: number;
+  consignmentOnly: number;
+  checkedUnclear: number;
+  neverChecked: number;
+};
+
+export async function getStateBuyingModelBreakdown(stateCode: string): Promise<BuyingModelBreakdown> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select
+       count(*) filter (where buying_model = 'buys_outright') as buys_outright,
+       count(*) filter (where buying_model = 'consignment_vendor_booth') as consignment_only,
+       count(*) filter (where buying_model = 'unclear') as checked_unclear,
+       count(*) filter (where buying_model is null) as never_checked
+     from stores
+     where ${CORE_FIELDS_OK} and state_code = $1`,
+    [stateCode],
+  );
+  const r = rows[0];
+  return {
+    buysOutright: Number(r.buys_outright),
+    consignmentOnly: Number(r.consignment_only),
+    checkedUnclear: Number(r.checked_unclear),
+    neverChecked: Number(r.never_checked),
+  };
+}
+
+// Curated allow-list for the home page's specialty teaser -- hand-picked
+// to exclude categories that are common in the raw data but aren't
+// actually antique/vintage-relevant (e.g. "Video game store", the
+// lowercase "attractions" junk category). Counts are queried live, not
+// hardcoded, so they stay accurate as the catalog grows.
+const SPECIALTY_TEASER_CATEGORIES = [
+  { category: "Antique store", label: "Antique Stores" },
+  { category: "Collectibles store", label: "Collectibles Stores" },
+  { category: "Antique furniture store", label: "Antique Furniture Stores" },
+  { category: "Antique furniture restoration service", label: "Furniture Restoration" },
+  { category: "Coin dealer", label: "Coin Dealers" },
+  { category: "Vintage clothing store", label: "Vintage Clothing" },
+];
+
+export async function getSpecialtyTeaser(): Promise<{ label: string; count: number }[]> {
+  const pool = getPool();
+  const categories = SPECIALTY_TEASER_CATEGORIES.map((c) => c.category);
+  const { rows } = await pool.query(
+    `select category, count(*) as count
+     from stores
+     where ${CORE_FIELDS_OK} and category = any($1::text[])
+     group by category`,
+    [categories],
+  );
+  const countByCategory = new Map(rows.map((r) => [r.category as string, Number(r.count)]));
+  return SPECIALTY_TEASER_CATEGORIES.map((c) => ({
+    label: c.label,
+    count: countByCategory.get(c.category) ?? 0,
+  }));
+}
+
+// Most recently processed by the enrichment pipeline -- NOT "newly added
+// to the directory". enriched_at has only 57 distinct values across the
+// whole catalog (batch-run timestamps from a handful of pipeline runs),
+// so this reflects which batch ran last, not per-store discovery dates.
+// Framed as "Recently Updated" on the home page for exactly this reason.
+export async function getRecentlyUpdated(limit = 3): Promise<StoreCard[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select id, name, city, state_code, category, primary_specialty,
+            rating, reviews, enrichment_status, photo
+     from stores
+     where ${CORE_FIELDS_OK} and enrichment_status = 'enriched' and enriched_at is not null
+     order by enriched_at desc, id desc
+     limit $1`,
+    [limit],
+  );
+  return rows.map(toCard);
+}
