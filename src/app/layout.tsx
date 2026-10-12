@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "Antique Directory",
-    template: "%s | Antique Directory",
+    default: "Antique Stores Finder",
+    template: "%s | Antique Stores Finder",
   },
   description:
     "Find antique stores, vintage dealers, and collectibles shops near you -- browse by state and city.",
@@ -34,14 +34,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="border-b border-stone-200 bg-white">
           <div className="mx-auto max-w-5xl px-4 py-4">
             <Link href="/" className="text-lg font-semibold tracking-tight">
-              Antique Directory
+              Antique Stores Finder
             </Link>
           </div>
         </header>
         <main className="flex-1">{children}</main>
         <footer className="border-t border-stone-200 bg-white">
           <div className="mx-auto max-w-5xl px-4 py-6 text-sm text-stone-500">
-            Antique Directory -- store listings sourced and enriched from public
+            Antique Stores Finder -- store listings sourced and enriched from public
             data. Information may be incomplete or out of date; verify hours and
             availability with the store directly.
           </div>
