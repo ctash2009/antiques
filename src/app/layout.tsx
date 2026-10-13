@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Fraunces, Public_Sans } from "next/font/google";
 import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
@@ -15,14 +18,41 @@ const publicSans = Public_Sans({
   subsets: ["latin"],
 });
 
+// Set once you have the code from Google -- nothing renders until this is
+// set, so leaving it unset is a safe no-op rather than a broken/empty tag.
+const GOOGLE_SITE_VERIFICATION = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+// Same deal for GA4 -- set NEXT_PUBLIC_GA_MEASUREMENT_ID once you have a
+// Measurement ID (G-XXXXXXX) from analytics.google.com; the gtag script
+// below only renders when it's present.
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
-  metadataBase: new URL(getSiteUrl()),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Antique Stores Finder",
     template: "%s | Antique Stores Finder",
   },
   description:
     "Find antique stores, vintage dealers, and collectibles shops near you -- browse by state and city.",
+  openGraph: {
+    type: "website",
+    siteName: "Antique Stores Finder",
+    title: "Antique Stores Finder",
+    description:
+      "Find antique stores, vintage dealers, and collectibles shops near you -- browse by state and city.",
+    url: siteUrl,
+  },
+  twitter: {
+    card: "summary",
+    title: "Antique Stores Finder",
+    description:
+      "Find antique stores, vintage dealers, and collectibles shops near you -- browse by state and city.",
+  },
+  ...(GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -58,6 +88,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             hours and availability with the store directly.
           </div>
         </footer>
+        <Analytics />
+        <SpeedInsights />
+        {GA_MEASUREMENT_ID && (
+          <>
+            <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} strategy="afterInteractive" />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_MEASUREMENT_ID}');`}
+            </Script>
+          </>
+        )}
       </body>
     </html>
   );
