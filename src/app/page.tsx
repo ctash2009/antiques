@@ -34,7 +34,7 @@ export default async function Home() {
         Find antique and vintage shops near you
       </h1>
       <p className="mt-3 max-w-2xl" style={{ color: "var(--color-text-muted)", fontSize: "17px" }}>
-        Browse {total.toLocaleString()} stores by specialty, buying policy, and location --
+        Browse {total.toLocaleString()} individually verified stores by specialty, buying policy, and location --
         whether you&apos;re looking for a shop to visit or a dealer who may buy what you have.
       </p>
 

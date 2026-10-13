@@ -1,10 +1,20 @@
 import { getPool } from "./db";
 import { slugify } from "./geo";
 
-// Only rows with the core fields a page needs to render are addressable.
-// (16 of 34,928 rows are missing name/city/state_code -- bad scrapes with
-// nothing to show; excluded everywhere via this clause.)
-const CORE_FIELDS_OK = `name is not null and city is not null and state_code is not null`;
+// Only rows with the core fields a page needs to render, AND verified by
+// the enrichment pipeline, are publicly addressable. Decided 2026-10-12:
+// start with enriched-only (4,662 of 34,912 addressable rows) rather than
+// the full catalog. Most non-enriched rows DO carry real Google-scrape
+// data (80%+ have a rating, 86%+ a phone, 97%+ a photo even without
+// enrichment) -- this isn't "those rows are empty", it's a deliberate
+// choice to only publish pages the pipeline has actually looked at.
+// REVISIT (per the user): bring back non-enriched rows that have a real
+// website or phone number, once this baseline has shipped. See
+// [[listing_minimum_requirements]] memory for the full numbers behind
+// this decision and the tiers considered.
+// (16 of 34,928 rows are also missing name/city/state_code outright --
+// bad scrapes with nothing to show -- excluded by the same clause.)
+const CORE_FIELDS_OK = `name is not null and city is not null and state_code is not null and enrichment_status = 'enriched'`;
 
 // Categories that are definitively not antique/vintage-relevant, applied
 // to city listings and search so e.g. a GameStop or a generic scrape
@@ -293,17 +303,17 @@ export async function getConfirmedBuyers(limit = 30): Promise<StoreCard[]> {
 
 export type StateStats = {
   total: number;
-  enrichedCount: number;
   cityCount: number;
   buysOutrightCount: number;
 };
 
+// No `enrichedCount` here -- CORE_FIELDS_OK already restricts every query
+// to enriched rows only, so it would always equal `total` and say nothing.
 export async function getStateStats(stateCode: string): Promise<StateStats> {
   const pool = getPool();
   const { rows } = await pool.query(
     `select
        count(*) as total,
-       count(*) filter (where enrichment_status = 'enriched') as enriched_count,
        count(distinct city) as city_count,
        count(*) filter (where buying_model = 'buys_outright') as buys_outright_count
      from stores
@@ -313,7 +323,6 @@ export async function getStateStats(stateCode: string): Promise<StateStats> {
   const r = rows[0];
   return {
     total: Number(r.total),
-    enrichedCount: Number(r.enriched_count),
     cityCount: Number(r.city_count),
     buysOutrightCount: Number(r.buys_outright_count),
   };
@@ -355,7 +364,6 @@ export async function getStateFeaturedStores(
     `select ${CARD_COLUMNS}
      from stores
      where ${CORE_FIELDS_OK} and state_code = $1
-       and enrichment_status = 'enriched'
        and category in ('Antique store', 'Antique furniture store')
        and rating is not null and reviews >= 10
      order by rating desc, reviews desc
@@ -437,7 +445,7 @@ export async function getRecentlyUpdated(limit = 3): Promise<StoreCard[]> {
   const { rows } = await pool.query(
     `select ${CARD_COLUMNS}
      from stores
-     where ${CORE_FIELDS_OK} and enrichment_status = 'enriched' and enriched_at is not null
+     where ${CORE_FIELDS_OK} and enriched_at is not null
      order by enriched_at desc, id desc
      limit $1`,
     [limit],

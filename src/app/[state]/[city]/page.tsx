@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!result) return {};
   return {
     title: `Antique Stores in ${result.cityName}, ${state.code}`,
-    description: `Find antique shops and vintage dealers in ${result.cityName}, ${state.name}. ${result.stores.length} stores listed.`,
+    description: `Find antique shops and vintage dealers in ${result.cityName}, ${state.name}. ${result.stores.length} verified stores listed.`,
   };
 }
 
@@ -63,7 +63,7 @@ export default async function CityPage({ params, searchParams }: Props) {
         Antique Stores in {cityName}, {state.code}
       </h1>
       <p className="mt-3" style={{ color: "var(--color-text-muted)" }}>
-        {allStores.length.toLocaleString()} {allStores.length === 1 ? "store" : "stores"} in{" "}
+        {allStores.length.toLocaleString()} verified {allStores.length === 1 ? "store" : "stores"} in{" "}
         {cityName}.
       </p>
 

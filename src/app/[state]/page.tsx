@@ -137,15 +137,15 @@ export default async function StatePage({ params }: Props) {
       )}
 
       <details className="disclosure" style={{ marginTop: "var(--space-12)" }}>
-        <summary>Research coverage and data breakdown for {state.name}</summary>
-        <div className="stat-row">
+        <summary>Data breakdown for {state.name}</summary>
+        <p className="lede">
+          Every listing shown is individually verified -- {state.name} also has additional
+          candidate stores not yet reviewed, which aren&apos;t published yet.
+        </p>
+        <div className="stat-row" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
           <div className="stat-tile">
             <div className="num">{stats.total.toLocaleString()}</div>
-            <div className="label">Stores catalogued</div>
-          </div>
-          <div className="stat-tile">
-            <div className="num">{stats.enrichedCount.toLocaleString()}</div>
-            <div className="label">Websites individually reviewed</div>
+            <div className="label">Verified stores catalogued</div>
           </div>
           <div className="stat-tile">
             <div className="num">{stats.cityCount.toLocaleString()}</div>
@@ -185,11 +185,8 @@ export default async function StatePage({ params }: Props) {
         {checkedCount > 0 && (
           <>
             <p className="lede" style={{ marginTop: "var(--space-8)" }}>
-              Buying-policy research coverage is a different measure from general website review
-              coverage above -- a store can have a reviewed website without a confirmed buying
-              policy, or vice versa. Of {stats.total.toLocaleString()} listings,{" "}
-              {buying.neverChecked.toLocaleString()} have never been checked for a buying policy.
-              Among the {checkedCount.toLocaleString()} that were:
+              Every verified listing was checked for a buying policy. How {checkedCount.toLocaleString()}{" "}
+              broke down:
             </p>
             <div className="badges" style={{ marginTop: "var(--space-3)" }}>
               {buying.buysOutright > 0 && (
