@@ -29,6 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `Antique Stores in ${state.name}`,
     description: `Browse antique shops, vintage dealers, and collectibles stores by city in ${state.name}.`,
+    alternates: { canonical: `/${state.slug}` },
   };
 }
 

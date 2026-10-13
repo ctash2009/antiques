@@ -27,6 +27,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `Antique Stores in ${result.cityName}, ${state.code}`,
     description: `Find antique shops and vintage dealers in ${result.cityName}, ${state.name}. ${result.stores.length} verified stores listed.`,
+    // Always points at the base city URL, even when ?buys=1 is present --
+    // the filter is a view of the same page, not separate content.
+    alternates: { canonical: `/${state.slug}/${citySlug}` },
   };
 }
 

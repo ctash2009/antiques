@@ -43,6 +43,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description:
       store.enrichedDescription ??
       `${store.name} is an antique store in ${store.city}, ${state.name}. Find address, hours, and contact info.`,
+    // Canonical uses the store's actual city slug, not the URL's --
+    // matches the page's own redirect logic, so the canonical tag never
+    // points at a URL that itself 302s elsewhere.
+    alternates: { canonical: `/${state.slug}/${slugify(store.city)}/${store.slug}` },
   };
 }
 

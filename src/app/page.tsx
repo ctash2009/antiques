@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { STATES, slugify, stateByCode } from "@/lib/geo";
 import {
@@ -9,6 +10,10 @@ import {
 } from "@/lib/stores";
 
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 function storeHref(store: StoreCard): string {
   const state = stateByCode(store.stateCode);
