@@ -1,18 +1,17 @@
 import type { MetadataRoute } from "next";
 import { STATES, slugify } from "@/lib/geo";
-import { getAllCities, getAllStoreSlugs, getTotalStoreCount } from "@/lib/stores";
+import { getAllCities, getAllStoreSlugs } from "@/lib/stores";
 import { getSiteUrl } from "@/lib/site";
+import { getSitemapChunkCount, LISTINGS_PER_CHUNK } from "@/lib/sitemap-chunks";
 
 // Chunk id 0 carries home + all state pages + all city pages (~9,821 URLs
 // today -- well under the 50k/file limit on its own). Remaining ids are
 // listing pages in fixed-size pages, computed from the live count so this
-// keeps working as Phase 0 enrichment adds the other ~19.7k stores.
-const LISTINGS_PER_CHUNK = 40000;
-
+// keeps working as the catalog grows. Chunk count logic lives in
+// sitemap-chunks.ts, shared with robots.ts.
 export async function generateSitemaps() {
-  const total = await getTotalStoreCount();
-  const listingChunks = Math.max(1, Math.ceil(total / LISTINGS_PER_CHUNK));
-  return Array.from({ length: listingChunks + 1 }, (_, i) => ({ id: i }));
+  const chunkCount = await getSitemapChunkCount();
+  return Array.from({ length: chunkCount }, (_, i) => ({ id: i }));
 }
 
 export default async function sitemap({
