@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Fraunces, Public_Sans, IBM_Plex_Mono } from "next/font/google";
+import { Fraunces, Public_Sans } from "next/font/google";
 import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
 
@@ -13,12 +13,6 @@ const fraunces = Fraunces({
 const publicSans = Public_Sans({
   variable: "--font-public-sans",
   subsets: ["latin"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -35,19 +29,30 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${publicSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${publicSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <div className="topbar">
-          <div className="mx-auto max-w-5xl px-4 py-4">
+          <div
+            className="mx-auto flex items-center justify-between gap-4 px-4 py-4"
+            style={{ maxWidth: "var(--content-max)" }}
+          >
             <Link href="/" className="wordmark">
               Antique Stores <span>Finder</span>
             </Link>
+            <nav className="topbar-nav">
+              <Link href="/search">Find Shops</Link>
+              <Link href="/search?buys=outright">Find Buyers</Link>
+              <Link href="/#states">Browse States</Link>
+            </nav>
           </div>
         </div>
         <main className="flex-1">{children}</main>
-        <footer style={{ borderTop: "1px solid var(--line)", background: "var(--paper)" }}>
-          <div className="mx-auto max-w-5xl px-4 py-6 text-sm" style={{ color: "var(--ink-faint)" }}>
+        <footer className="sitefoot">
+          <div
+            className="mx-auto px-4 py-6 text-sm"
+            style={{ maxWidth: "var(--content-max)", color: "var(--color-text-muted)" }}
+          >
             Antique Stores Finder -- store listings sourced and enriched from
             public data. Information may be incomplete or out of date; verify
             hours and availability with the store directly.

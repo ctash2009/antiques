@@ -49,77 +49,70 @@ export default async function StatePage({ params }: Props) {
   const topCities = [...cities].sort((a, b) => b.count - a.count).slice(0, TOP_CITIES_COUNT);
   const allCitiesAZ = [...cities].sort((a, b) => a.city.localeCompare(b.city));
   const maxCategoryCount = categories[0]?.count ?? 1;
-  const verifiedPct = stats.total > 0 ? Math.round((stats.enrichedCount / stats.total) * 100) : 0;
   const checkedCount = stats.total - buying.neverChecked;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto px-4 py-10" style={{ maxWidth: "var(--content-max)" }}>
       <nav className="breadcrumb">
         <Link href="/">All States</Link>
       </nav>
 
-      <div className="eyebrow">State Guide</div>
       <h1 className="mt-2" style={{ fontSize: "clamp(2rem, 4vw, 2.9rem)", fontWeight: 600 }}>
         Antique Stores in {state.name}
       </h1>
-      <p className="mt-3" style={{ color: "var(--ink-soft)" }}>
+      <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
         {stats.total.toLocaleString()} stores across {cities.length.toLocaleString()}{" "}
         {cities.length === 1 ? "city" : "cities"}.
       </p>
 
-      <div className="stat-row">
-        <div className="stat-tile">
-          <div className="num">{stats.total.toLocaleString()}</div>
-          <div className="label">Stores catalogued</div>
-        </div>
-        <div className="stat-tile">
-          <div className="num">{stats.enrichedCount.toLocaleString()}</div>
-          <div className="label">Verified listings ({verifiedPct}%)</div>
-        </div>
-        <div className="stat-tile">
-          <div className="num">{stats.cityCount.toLocaleString()}</div>
-          <div className="label">Cities represented</div>
-        </div>
-        <div className="stat-tile">
-          <div className="num">{stats.buysOutrightCount.toLocaleString()}</div>
-          <div className="label">Buy antiques outright</div>
-        </div>
+      <div className="section-head" style={{ marginTop: "var(--space-8)" }}>
+        <h2>Find a City in {state.name}</h2>
+        <p className="lede">
+          All {cities.length.toLocaleString()} cities are browsable below. Top cities by store
+          count are listed first.
+        </p>
       </div>
+      <ul className="geo-grid" style={{ listStyle: "none", padding: 0 }}>
+        {topCities.map((c) => (
+          <li key={c.slug}>
+            <Link href={`/${state.slug}/${c.slug}`} className="geo-link">
+              <span>{c.city}</span>
+              <span className="count">{c.count.toLocaleString()}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
 
-      {categories.length > 0 && (
-        <>
-          <div className="section-head">
-            <h2>What {state.name} Stores Carry</h2>
-            <p className="lede">
-              Category breakdown across all {stats.total.toLocaleString()} {state.name} listings.
-              &quot;Antique store&quot; is Google&apos;s own catch-all category -- most of what&apos;s inside
-              it only becomes specific once a listing is individually verified.
-            </p>
-          </div>
-          <div className="bar-list">
-            {categories.map((c) => (
-              <div key={c.category} className="bar-row">
-                <div className="name">{c.category}</div>
-                <div className="bar-track">
-                  <div
-                    className="bar-fill"
-                    style={{ width: `${Math.round((c.count / maxCategoryCount) * 100)}%` }}
-                  />
-                </div>
-                <div className="count">{c.count.toLocaleString()}</div>
-              </div>
+      {allCitiesAZ.length > topCities.length && (
+        <details className="disclosure">
+          <summary>Browse all {cities.length.toLocaleString()} {state.name} cities, A-Z &rarr;</summary>
+          <ul className="geo-grid" style={{ listStyle: "none", padding: 0, marginTop: "var(--space-4)" }}>
+            {allCitiesAZ.map((c) => (
+              <li key={c.slug}>
+                <Link href={`/${state.slug}/${c.slug}`} className="geo-link">
+                  <span>{c.city}</span>
+                  <span className="count">{c.count.toLocaleString()}</span>
+                </Link>
+              </li>
             ))}
-          </div>
-        </>
+          </ul>
+        </details>
       )}
+
+      <div className="section-head">
+        <Link href={`/search?buys=1`} className="btn btn-secondary">
+          Find Confirmed Buyers in {state.name}
+        </Link>
+      </div>
 
       {featured.length > 0 && (
         <>
           <div className="section-head">
             <h2>Highest-Rated Antique Stores in {state.name}</h2>
             <p className="lede">
-              Verified listings only, restricted to genuine antique/antique-furniture
-              categories, minimum 10 reviews.
+              Selection criteria: verified listings, genuine antique/antique-furniture categories
+              only, minimum 10 reviews. A high score with few reviews is not automatically the
+              strongest recommendation for every visitor.
             </p>
           </div>
           <div className="mini-card-grid">
@@ -129,14 +122,13 @@ export default async function StatePage({ params }: Props) {
                 href={`/${state.slug}/${slugify(s.city)}/${s.slug}`}
                 className="mini-card"
               >
-                <span className="eyebrow">{s.primarySpecialty || s.category}</span>
                 <h3>{s.name}</h3>
                 <div className="loc">
                   {s.city}, {state.code}
                 </div>
-                <div className="rating mono">
-                  <span className="stars">★</span> {s.rating!.toFixed(1)}{" "}
-                  <span style={{ color: "var(--ink-faint)" }}>({s.reviews} reviews)</span>
+                <p className="specialty-line">{s.primarySpecialty || s.category}</p>
+                <div className="rating">
+                  <span className="stars">★</span> {s.rating!.toFixed(1)} ({s.reviews} reviews)
                 </div>
               </Link>
             ))}
@@ -144,64 +136,75 @@ export default async function StatePage({ params }: Props) {
         </>
       )}
 
-      {checkedCount > 0 && (
-        <>
-          <div className="section-head">
-            <h2>How {state.name} Stores Buy</h2>
-            <p className="lede">
-              Of the {stats.total.toLocaleString()} listings, {buying.neverChecked.toLocaleString()}{" "}
-              have never been checked for a buying policy. Among the {checkedCount.toLocaleString()}{" "}
-              that were:
+      <details className="disclosure" style={{ marginTop: "var(--space-12)" }}>
+        <summary>Research coverage and data breakdown for {state.name}</summary>
+        <div className="stat-row">
+          <div className="stat-tile">
+            <div className="num">{stats.total.toLocaleString()}</div>
+            <div className="label">Stores catalogued</div>
+          </div>
+          <div className="stat-tile">
+            <div className="num">{stats.enrichedCount.toLocaleString()}</div>
+            <div className="label">Websites individually reviewed</div>
+          </div>
+          <div className="stat-tile">
+            <div className="num">{stats.cityCount.toLocaleString()}</div>
+            <div className="label">Cities represented</div>
+          </div>
+          <div className="stat-tile">
+            <div className="num">{stats.buysOutrightCount.toLocaleString()}</div>
+            <div className="label">Confirmed direct buyers</div>
+          </div>
+        </div>
+
+        {categories.length > 0 && (
+          <>
+            <p className="lede" style={{ marginTop: "var(--space-8)" }}>
+              Categories as Google&apos;s own business listings describe these stores. This measures
+              how listings are categorized, not verified inventory -- most of what&apos;s inside
+              the catch-all &quot;Antique store&quot; category only becomes specific once a
+              listing is individually reviewed.
             </p>
-          </div>
-          <div className="badges" style={{ marginTop: "14px" }}>
-            {buying.buysOutright > 0 && (
-              <span className="badge buys">{buying.buysOutright} Buy Outright</span>
-            )}
-            {buying.consignmentOnly > 0 && (
-              <span className="badge plain">{buying.consignmentOnly} Consignment / Vendor Booth Only</span>
-            )}
-            {buying.checkedUnclear > 0 && (
-              <span className="badge unclear">{buying.checkedUnclear} Checked -- Still Unclear</span>
-            )}
-          </div>
-        </>
-      )}
+            <div className="bar-list">
+              {categories.map((c) => (
+                <div key={c.category} className="bar-row">
+                  <div className="name">{c.category}</div>
+                  <div className="bar-track">
+                    <div
+                      className="bar-fill"
+                      style={{ width: `${Math.round((c.count / maxCategoryCount) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="count">{c.count.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
-      <div className="section-head">
-        <h2>Top Cities</h2>
-        <p className="lede">
-          By store count. All {cities.length.toLocaleString()} {state.name} cities are browsable below.
-        </p>
-      </div>
-      <ul className="geo-grid" style={{ listStyle: "none", padding: 0 }}>
-        {topCities.map((c) => (
-          <li key={c.slug}>
-            <Link href={`/${state.slug}/${c.slug}`} className="geo-link">
-              <span>{c.city}</span>
-              <span className="count mono">{c.count.toLocaleString()}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-
-      {allCitiesAZ.length > topCities.length && (
-        <details className="all-cities browse-all">
-          <summary>
-            Browse all {cities.length.toLocaleString()} {state.name} cities &rarr;
-          </summary>
-          <ul className="geo-grid" style={{ listStyle: "none", padding: 0, marginTop: "20px" }}>
-            {allCitiesAZ.map((c) => (
-              <li key={c.slug}>
-                <Link href={`/${state.slug}/${c.slug}`} className="geo-link">
-                  <span>{c.city}</span>
-                  <span className="count mono">{c.count.toLocaleString()}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+        {checkedCount > 0 && (
+          <>
+            <p className="lede" style={{ marginTop: "var(--space-8)" }}>
+              Buying-policy research coverage is a different measure from general website review
+              coverage above -- a store can have a reviewed website without a confirmed buying
+              policy, or vice versa. Of {stats.total.toLocaleString()} listings,{" "}
+              {buying.neverChecked.toLocaleString()} have never been checked for a buying policy.
+              Among the {checkedCount.toLocaleString()} that were:
+            </p>
+            <div className="badges" style={{ marginTop: "var(--space-3)" }}>
+              {buying.buysOutright > 0 && (
+                <span className="badge buys">{buying.buysOutright} Buy Selected Items</span>
+              )}
+              {buying.consignmentOnly > 0 && (
+                <span className="badge plain">{buying.consignmentOnly} Consignment / Vendor Booths Only</span>
+              )}
+              {buying.checkedUnclear > 0 && (
+                <span className="badge unknown">{buying.checkedUnclear} Checked -- Still Unknown</span>
+              )}
+            </div>
+          </>
+        )}
+      </details>
     </div>
   );
 }

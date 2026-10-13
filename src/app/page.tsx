@@ -29,71 +29,60 @@ export default async function Home() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
-      <div className="eyebrow">{total.toLocaleString()} stores catalogued</div>
-      <h1 className="mt-2" style={{ fontSize: "clamp(2rem, 4vw, 2.9rem)", fontWeight: 600 }}>
-        Antique &amp; Vintage Stores, State by State
+    <div className="mx-auto px-4 py-10" style={{ maxWidth: "var(--content-max)" }}>
+      <h1 style={{ fontSize: "clamp(2rem, 4vw, 3.25rem)", fontWeight: 600 }}>
+        Find antique and vintage shops near you
       </h1>
-      <p className="mt-3 max-w-2xl" style={{ color: "var(--ink-soft)" }}>
-        Browse antique shops, vintage dealers, and collectibles stores across
-        the United States. Pick a state to find stores near you, or search
-        by name, city, or specialty.
+      <p className="mt-3 max-w-2xl" style={{ color: "var(--color-text-muted)", fontSize: "17px" }}>
+        Browse {total.toLocaleString()} stores by specialty, buying policy, and location --
+        whether you&apos;re looking for a shop to visit or a dealer who may buy what you have.
       </p>
 
+      <div className="intent-row">
+        <Link href="/search" className="intent-card">
+          <h3>Find Shops to Visit</h3>
+          <p>Browse by specialty, city, and state. See hours, appointment requirements, and directions.</p>
+        </Link>
+        <Link href="/search?buys=1" className="intent-card">
+          <h3>Find Buyers for Your Items</h3>
+          <p>
+            Stores with a confirmed direct-purchase policy. Not an offer, appraisal, or guaranteed
+            sale -- contact a store directly before sending or bringing items.
+          </p>
+        </Link>
+      </div>
+
       <form className="search-box" action="/search" method="get">
+        <label htmlFor="home-search-q" className="visually-hidden">
+          Store name, city, or specialty
+        </label>
         <input
+          id="home-search-q"
           type="text"
           name="q"
-          placeholder={'Try "Danish Modern", "Austin", or a store name…'}
+          placeholder="Store name, city, or specialty…"
         />
-        <button type="submit">Search</button>
+        <button type="submit" className="btn btn-primary">
+          Search
+        </button>
       </form>
       <div className="search-hint">Searches store name, city, and specialty across the full catalogue.</div>
 
-      {recentlyUpdated.length > 0 && (
-        <>
-          <div className="section-head">
-            <h2>Recently Updated</h2>
-            <div className="note">verified by our research pipeline, not newly discovered</div>
-          </div>
-          <div className="mini-card-grid">
-            {recentlyUpdated.map((s) => (
-              <Link key={s.id} href={storeHref(s)} className="mini-card">
-                <span className="eyebrow">{s.primarySpecialty || s.category || "Antique Store"}</span>
-                <h3>{s.name}</h3>
-                <div className="loc">
-                  {s.city}, {s.stateCode}
-                </div>
-                {s.rating !== null && (
-                  <div className="rating mono">
-                    <span className="stars">★</span> {s.rating.toFixed(1)}{" "}
-                    {s.reviews !== null && (
-                      <span style={{ color: "var(--ink-faint)" }}>({s.reviews} reviews)</span>
-                    )}
-                  </div>
-                )}
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
-
       <div className="section-head">
         <h2>Browse by Specialty</h2>
-        <div className="note">full category pages coming soon</div>
       </div>
       <div className="specialty-row">
         {specialties
           .filter((s) => s.count > 0)
           .map((s) => (
-            <span key={s.label} className="specialty-pill">
+            <Link key={s.category} href={`/search?q=${encodeURIComponent(s.category)}`} className="specialty-pill">
               <span>{s.label}</span>
-              <span className="count mono">{s.count.toLocaleString()}</span>
-            </span>
+              <span className="count">{s.count.toLocaleString()}</span>
+            </Link>
           ))}
       </div>
 
-      <div className="section-head">
+      <div id="states" className="section-head">
         <h2>Browse by State</h2>
       </div>
       <ul className="geo-grid" style={{ listStyle: "none", padding: 0 }}>
@@ -101,11 +90,42 @@ export default async function Home() {
           <li key={s.code}>
             <Link href={`/${s.slug}`} className="geo-link">
               <span>{s.name}</span>
-              <span className="count mono">{s.count.toLocaleString()}</span>
+              <span className="count">{s.count.toLocaleString()}</span>
             </Link>
           </li>
         ))}
       </ul>
+
+      {recentlyUpdated.length > 0 && (
+        <>
+          <div className="section-head">
+            <h2>Recently Updated</h2>
+          </div>
+          <div className="mini-card-grid">
+            {recentlyUpdated.map((s) => (
+              <Link key={s.id} href={storeHref(s)} className="mini-card">
+                <h3>{s.name}</h3>
+                <div className="loc">
+                  {s.city}, {s.stateCode}
+                </div>
+                <p className="specialty-line">{s.primarySpecialty || s.category || "Antique store"}</p>
+                {s.rating !== null && (
+                  <div className="rating">
+                    <span className="stars">★</span> {s.rating.toFixed(1)}
+                    {s.reviews !== null && <> ({s.reviews} reviews)</>}
+                  </div>
+                )}
+                {s.enrichedAt && (
+                  <div className="rating">
+                    Reviewed{" "}
+                    {s.enrichedAt.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

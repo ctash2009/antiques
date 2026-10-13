@@ -6,6 +6,23 @@ import { slugify } from "./geo";
 // nothing to show; excluded everywhere via this clause.)
 const CORE_FIELDS_OK = `name is not null and city is not null and state_code is not null`;
 
+// Categories that are definitively not antique/vintage-relevant, applied
+// to city listings and search so e.g. a GameStop or a generic scrape
+// artifact doesn't show up framed as an antique store. Deliberately
+// narrow -- this excludes only the unambiguous cases (a mainstream
+// chain-store category, a lowercase scrape-junk value, the content-free
+// generic "Store"). It is NOT a general relevance filter: legitimately
+// ambiguous-but-plausible categories (coin dealer, trading card store,
+// vintage clothing, thrift store, consignment shop) are deliberately
+// left in rather than guessed at. A chain store miscategorized under one
+// of the categories we DO allow (e.g. a GameStop tagged "Collectibles
+// store") will still slip through -- that needs a name-based rule this
+// doesn't attempt.
+const IRRELEVANT_CATEGORIES = ["Video game store", "attractions", "Store"];
+
+// Buying-policy and store-format fields live on the base card type, not
+// just StoreDetail -- the design guidelines require buying/visit status
+// visible on city-page result rows, not only on the listing page itself.
 export type StoreCard = {
   id: number;
   name: string;
@@ -18,6 +35,11 @@ export type StoreCard = {
   reviews: number | null;
   enrichmentStatus: string | null;
   photo: string | null;
+  businessModel: string | null;
+  buysAntiques: boolean | null;
+  buyingModel: string | null;
+  smallBusiness: boolean | null;
+  enrichedAt: Date | null;
 };
 
 export type StoreDetail = StoreCard & {
@@ -31,15 +53,18 @@ export type StoreDetail = StoreCard & {
   workingHours: Record<string, string[]> | null;
   workingHoursCsv: string | null;
   subtypes: string | null;
-  businessModel: string | null;
-  buysAntiques: boolean | null;
-  buyingModel: string | null;
   enrichedDescription: string | null;
   description: string | null;
   enrichmentConfidence: string | null;
-  smallBusiness: boolean | null;
   photosCount: number | null;
+  enrichmentSources: string[] | null;
 };
+
+// Columns every list query needs so StoreCard rows carry real buying/visit
+// status, not just name/rating. Spliced into each SELECT below.
+const CARD_COLUMNS = `id, name, city, state_code, category, primary_specialty,
+  rating, reviews, enrichment_status, photo, business_model, buys_antiques,
+  buying_model, about_from_the_business_small_business, enriched_at`;
 
 function toCard(row: Record<string, unknown>): StoreCard {
   return {
@@ -54,6 +79,11 @@ function toCard(row: Record<string, unknown>): StoreCard {
     reviews: (row.reviews as number) ?? null,
     enrichmentStatus: (row.enrichment_status as string) ?? null,
     photo: (row.photo as string) ?? null,
+    businessModel: (row.business_model as string) ?? null,
+    buysAntiques: (row.buys_antiques as boolean) ?? null,
+    buyingModel: (row.buying_model as string) ?? null,
+    smallBusiness: (row.about_from_the_business_small_business as boolean) ?? null,
+    enrichedAt: (row.enriched_at as Date) ?? null,
   };
 }
 
@@ -107,11 +137,11 @@ export async function getStoresForCity(
 
   const pool = getPool();
   const { rows } = await pool.query(
-    `select id, name, city, state_code, category, primary_specialty,
-            rating, reviews, enrichment_status, photo
+    `select ${CARD_COLUMNS}
      from stores
-     where ${CORE_FIELDS_OK} and state_code = $1 and city = $2`,
-    [stateCode, match.city],
+     where ${CORE_FIELDS_OK} and state_code = $1 and city = $2
+       and (category is null or category != all($3::text[]))`,
+    [stateCode, match.city, IRRELEVANT_CATEGORIES],
   );
   return {
     cityName: match.city,
@@ -132,7 +162,8 @@ export async function getStoreById(id: number): Promise<StoreDetail | null> {
             address, street, postal_code, phone, website, latitude, longitude,
             working_hours, working_hours_csv_compatible, business_model,
             buys_antiques, buying_model, enriched_description, description,
-            about_from_the_business_small_business, photos_count
+            about_from_the_business_small_business, photos_count,
+            enrichment_sources, enriched_at
      from stores
      where id = $1 and ${CORE_FIELDS_OK}`,
     [id],
@@ -151,14 +182,13 @@ export async function getStoreById(id: number): Promise<StoreDetail | null> {
     workingHours: row.working_hours ?? null,
     workingHoursCsv: row.working_hours_csv_compatible ?? null,
     subtypes: row.subtypes ?? null,
-    businessModel: row.business_model ?? null,
-    buysAntiques: row.buys_antiques ?? null,
-    buyingModel: row.buying_model ?? null,
     enrichedDescription: row.enriched_description ?? null,
     description: row.description ?? null,
     enrichmentConfidence: row.enrichment_confidence ?? null,
-    smallBusiness: row.about_from_the_business_small_business ?? null,
     photosCount: row.photos_count ?? null,
+    enrichmentSources: Array.isArray(row.enrichment_sources) && row.enrichment_sources.length > 0
+      ? row.enrichment_sources
+      : null,
   };
 }
 
@@ -221,21 +251,42 @@ const SEARCH_VECTOR = `to_tsvector('english',
   coalesce(name,'') || ' ' || coalesce(city,'') || ' ' || coalesce(state,'') || ' ' ||
   coalesce(primary_specialty,'') || ' ' || coalesce(category,''))`;
 
-export async function searchStores(query: string, limit = 30): Promise<StoreCard[]> {
+export async function searchStores(
+  query: string,
+  opts: { limit?: number; buysOnly?: boolean } = {},
+): Promise<StoreCard[]> {
   const q = query.trim();
+  const { limit = 30, buysOnly = false } = opts;
   if (!q) return [];
 
   const pool = getPool();
   const { rows } = await pool.query(
-    `select id, name, city, state_code, category, primary_specialty,
-            rating, reviews, enrichment_status, photo
+    `select ${CARD_COLUMNS}
      from stores
      where ${CORE_FIELDS_OK}
        and ${SEARCH_VECTOR} @@ websearch_to_tsquery('english', $1)
+       and (category is null or category != all($2::text[]))
+       ${buysOnly ? "and buys_antiques = true" : ""}
      order by ts_rank(${SEARCH_VECTOR}, websearch_to_tsquery('english', $1)) desc,
               reviews desc nulls last
-     limit $2`,
-    [q, limit],
+     limit $3`,
+    [q, IRRELEVANT_CATEGORIES, limit],
+  );
+  return rows.map(toCard);
+}
+
+// For the homepage's "Find Buyers" entry point: confirmed outright
+// buyers only, independent of any search term. Separate from
+// `searchStores`'s `buysOnly` flag because this has no query to rank by.
+export async function getConfirmedBuyers(limit = 30): Promise<StoreCard[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `select ${CARD_COLUMNS}
+     from stores
+     where ${CORE_FIELDS_OK} and buys_antiques = true
+     order by reviews desc nulls last
+     limit $1`,
+    [limit],
   );
   return rows.map(toCard);
 }
@@ -301,8 +352,7 @@ export async function getStateFeaturedStores(
 ): Promise<StoreCard[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select id, name, city, state_code, category, primary_specialty,
-            rating, reviews, enrichment_status, photo
+    `select ${CARD_COLUMNS}
      from stores
      where ${CORE_FIELDS_OK} and state_code = $1
        and enrichment_status = 'enriched'
@@ -357,7 +407,9 @@ const SPECIALTY_TEASER_CATEGORIES = [
   { category: "Vintage clothing store", label: "Vintage Clothing" },
 ];
 
-export async function getSpecialtyTeaser(): Promise<{ label: string; count: number }[]> {
+export async function getSpecialtyTeaser(): Promise<
+  { label: string; category: string; count: number }[]
+> {
   const pool = getPool();
   const categories = SPECIALTY_TEASER_CATEGORIES.map((c) => c.category);
   const { rows } = await pool.query(
@@ -370,6 +422,7 @@ export async function getSpecialtyTeaser(): Promise<{ label: string; count: numb
   const countByCategory = new Map(rows.map((r) => [r.category as string, Number(r.count)]));
   return SPECIALTY_TEASER_CATEGORIES.map((c) => ({
     label: c.label,
+    category: c.category,
     count: countByCategory.get(c.category) ?? 0,
   }));
 }
@@ -382,8 +435,7 @@ export async function getSpecialtyTeaser(): Promise<{ label: string; count: numb
 export async function getRecentlyUpdated(limit = 3): Promise<StoreCard[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `select id, name, city, state_code, category, primary_specialty,
-            rating, reviews, enrichment_status, photo
+    `select ${CARD_COLUMNS}
      from stores
      where ${CORE_FIELDS_OK} and enrichment_status = 'enriched' and enriched_at is not null
      order by enriched_at desc, id desc

@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { parseStoreSlug, slugify, stateBySlug } from "@/lib/geo";
-import { getStoreById, type StoreDetail } from "@/lib/stores";
+import { getStoreById } from "@/lib/stores";
 import { breadcrumbJsonLd, storeJsonLd } from "@/lib/jsonld";
 import { JsonLd } from "@/components/JsonLd";
 import { getSiteUrl } from "@/lib/site";
+import { buyingPolicyBadges, isAppointmentOnly, researchStatusBadge, storeFormatBadges } from "@/lib/policy";
+import { Badges } from "@/components/Badges";
+import { EvidenceNote } from "@/components/EvidenceNote";
 
 // Listings are not prerendered at build time (34,928 of them) -- each
 // renders on first visit and is cached for `revalidate` seconds (ISR).
@@ -16,45 +19,6 @@ export const revalidate = 86400;
 type Props = { params: Promise<{ state: string; city: string; store: string }> };
 
 const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-const BUSINESS_MODEL_LABEL: Record<string, string> = {
-  single_dealer: "Single Dealer",
-  single_dealor: "Single Dealer", // data-entry typo seen in a handful of rows
-  multi_vendor_mall: "Multi-Vendor Marketplace",
-};
-
-const BUYING_MODEL_SUFFIX: Record<string, string> = {
-  buys_outright: " -- Outright Purchase",
-  consignment_vendor_booth: " -- Consignment / Vendor Booth",
-};
-
-// Badges only assert what the enrichment pipeline actually confirmed --
-// no badge at all beats a guessed one, per the enrichment methodology's
-// rule against treating the raw "buys used goods" flag as fact on its own.
-function buildBadges(store: StoreDetail) {
-  const badges: { cls: string; text: string }[] = [];
-
-  if (store.buysAntiques === true) {
-    const suffix = store.buyingModel ? BUYING_MODEL_SUFFIX[store.buyingModel] ?? "" : "";
-    badges.push({ cls: "buys", text: `✓ Buys Antiques${suffix}` });
-  } else if (store.buysAntiques === false) {
-    badges.push({ cls: "plain", text: "Does Not Buy Antiques" });
-  } else if (store.enrichmentStatus === "enriched" && store.buyingModel === "unclear") {
-    badges.push({ cls: "unclear", text: "Buying Policy Unclear" });
-  }
-
-  if (store.businessModel === "appointment_only_showroom") {
-    badges.push({ cls: "appt", text: "By Appointment Only" });
-  } else if (store.businessModel && BUSINESS_MODEL_LABEL[store.businessModel]) {
-    badges.push({ cls: "plain", text: BUSINESS_MODEL_LABEL[store.businessModel] });
-  }
-
-  if (store.smallBusiness === true) {
-    badges.push({ cls: "plain", text: "Small Business" });
-  }
-
-  return badges;
-}
 
 async function resolve(params: Props["params"]) {
   const { state: stateSlug, city: citySlug, store: storeSlug } = await params;
@@ -96,12 +60,14 @@ export default async function StorePage({ params }: Props) {
   }
 
   const pageUrl = `${getSiteUrl()}/${state.slug}/${citySlug}/${store.slug}`;
-  const badges = buildBadges(store);
+  const researchBadge = researchStatusBadge(store.enrichmentStatus);
+  const badges = researchBadge
+    ? [researchBadge]
+    : [...storeFormatBadges(store), ...buyingPolicyBadges(store)];
+  const appointmentOnly = isAppointmentOnly(store);
   const description = store.enrichedDescription ?? store.description;
+  const buysSelectedItems = store.buysAntiques === true;
 
-  // Real secondary tags come from `subtypes` (e.g. "Collectibles store,
-  // Clothing store") rather than a curated list -- dedupe against the
-  // primary specialty/category already shown in the hero.
   const tags = (store.subtypes ?? "")
     .split(",")
     .map((t) => t.trim())
@@ -122,7 +88,7 @@ export default async function StorePage({ params }: Props) {
         : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="mx-auto px-4 py-10" style={{ maxWidth: "var(--content-max)" }}>
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "All States", path: "/" },
@@ -141,89 +107,128 @@ export default async function StorePage({ params }: Props) {
         <Link href={`/${state.slug}/${citySlug}`}>{store.city}</Link>
       </nav>
 
-      <div className="mt-6" style={{ borderBottom: "1px solid var(--line)", paddingBottom: "28px" }}>
-        <div className="eyebrow">{store.primarySpecialty || store.category || "Antique Store"}</div>
-        <h1 className="mt-2" style={{ fontSize: "clamp(2rem, 4vw, 2.9rem)", fontWeight: 600 }}>
-          {store.name}
-        </h1>
-        <div className="mt-3 flex flex-wrap items-center gap-4" style={{ color: "var(--ink-soft)" }}>
-          {store.rating !== null && (
-            <span>
-              <span className="stars">★★★★★</span> {store.rating.toFixed(1)}{" "}
-              {store.reviews !== null && (
-                <span style={{ color: "var(--ink-faint)" }}>({store.reviews} reviews)</span>
-              )}
-            </span>
-          )}
-          <span className="mono">
-            {store.address ?? `${store.city}, ${state.code}`}
-          </span>
+      {/* Name, location, specialty, rating, buying policy, and appointment
+          requirement all live in this top block, above the fold, per the
+          design guidelines -- a visitor shouldn't have to scroll past
+          photos to find out whether this is a walk-in shop. */}
+      <div className="mt-4" style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: "var(--space-6)" }}>
+        <h1 style={{ fontSize: "clamp(2rem, 4vw, 2.9rem)", fontWeight: 600 }}>{store.name}</h1>
+        <p className="mt-1" style={{ color: "var(--color-text-muted)", fontSize: "16px" }}>
+          {store.city}, {state.code}
+          {" -- "}
+          {store.primarySpecialty || store.category || "Antique store"}
+        </p>
+
+        {store.rating !== null && (
+          <p className="mt-2" style={{ color: "var(--color-text-muted)" }}>
+            <span className="stars">★</span> {store.rating.toFixed(1)}
+            {store.reviews !== null && <> ({store.reviews} reviews)</>}
+          </p>
+        )}
+
+        <div className="mt-4">
+          <Badges badges={badges} />
         </div>
-        {badges.length > 0 && (
-          <div className="badges mt-5">
-            {badges.map((b, i) => (
-              <span key={i} className={`badge ${b.cls}`}>
-                {b.text}
-              </span>
-            ))}
+
+        {appointmentOnly && (
+          <div className="notice-box mt-4">
+            By appointment only -- posted hours don&apos;t mean walk-in access. Contact the store
+            to schedule a visit.
           </div>
         )}
+
+        {/* Contact actions, near the title per the guidelines, not buried
+            below photos/about. */}
+        <div className="mt-5 flex flex-wrap gap-3">
+          {store.phone && (
+            <a href={`tel:${store.phone}`} className="btn btn-primary">
+              Call
+            </a>
+          )}
+          {store.website && (
+            <a href={store.website} target="_blank" rel="noopener noreferrer nofollow" className="btn btn-secondary">
+              Website
+            </a>
+          )}
+          {directionsUrl && (
+            <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
+              Directions
+            </a>
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-10" style={{ gridTemplateColumns: "1fr 320px", paddingTop: "36px" }}>
+      <div className="grid gap-10" style={{ gridTemplateColumns: "1fr 320px", paddingTop: "var(--space-8)" }}>
         <main>
-          {store.enrichmentStatus === "insufficient_data" && (
-            <div
-              className="mb-8"
-              style={{
-                borderRadius: "var(--radius)",
-                border: "1px solid var(--oxblood)",
-                background: "var(--oxblood-bg)",
-                color: "var(--oxblood)",
-                padding: "10px 14px",
-                fontSize: "0.9rem",
-              }}
-            >
-              We don&apos;t have verified details for this listing yet.
-            </div>
-          )}
-
           <section className="mb-9">
             {store.photo ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element -- external Google Business Profile photo, not an optimizable local asset */}
-                <img
-                  src={store.photo}
-                  alt={store.name}
-                  style={{
-                    width: "100%",
-                    aspectRatio: "4/3",
-                    objectFit: "cover",
-                    borderRadius: "var(--radius)",
-                    border: "1px solid var(--card-line)",
-                  }}
-                />
-                {store.photosCount !== null && store.photosCount > 1 && (
-                  <div className="mono mt-2 text-xs" style={{ color: "var(--ink-faint)" }}>
-                    {store.photosCount} photos on file
-                  </div>
-                )}
-              </>
+              // eslint-disable-next-line @next/next/no-img-element -- external Google Business Profile photo, not an optimizable local asset
+              <img
+                src={store.photo}
+                alt={store.name}
+                style={{
+                  width: "100%",
+                  aspectRatio: "4/3",
+                  objectFit: "cover",
+                  borderRadius: "var(--radius-card)",
+                  border: "1px solid var(--color-border)",
+                }}
+              />
             ) : (
-              <div className="photo-tile" style={{ aspectRatio: "16/7" }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
-                  <path d="M4 18V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9M4 18h16M4 18v2M20 18v2M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
-                </svg>
+              <div
+                style={{
+                  aspectRatio: "16/7",
+                  borderRadius: "var(--radius-card)",
+                  border: "1px solid var(--color-border)",
+                  background: "var(--color-primary-soft)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--color-text-muted)",
+                  fontSize: "14px",
+                }}
+              >
+                Photo unavailable
               </div>
             )}
           </section>
 
+          {buysSelectedItems && (
+            <section className="mb-9">
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: "var(--space-3)" }}>
+                Selling to {store.name}
+              </h2>
+              <div
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderLeft: "4px solid var(--color-primary)",
+                  borderRadius: "var(--radius-card)",
+                  padding: "var(--space-5, 20px)",
+                }}
+              >
+                <p style={{ fontWeight: 600, color: "var(--color-primary)" }}>
+                  {store.buyingModel === "buys_outright"
+                    ? "Buys selected items directly"
+                    : "Buys selected items"}
+                </p>
+                <p className="mt-2" style={{ color: "var(--color-text-muted)" }}>
+                  Contact the store directly to arrange a sale -- items and pricing are reviewed
+                  on a case-by-case basis. This describes a purchasing service, not a promise to
+                  accept any specific item.
+                </p>
+                <EvidenceNote store={store} />
+              </div>
+            </section>
+          )}
+
           {description && (
             <section className="mb-9">
-              <h2 style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: "14px" }}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: "var(--space-3)" }}>
                 About {store.name}
               </h2>
               <p style={{ maxWidth: "64ch" }}>{description}</p>
+              <EvidenceNote store={store} />
               {tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {tags.map((t) => (
@@ -235,28 +240,10 @@ export default async function StorePage({ params }: Props) {
               )}
             </section>
           )}
-
-          {store.buysAntiques === true && (
-            <section className="mb-9">
-              <h2 style={{ fontSize: "1.3rem", fontWeight: 600, marginBottom: "14px" }}>
-                Selling to {store.name}
-              </h2>
-              <div className="sell-card">
-                <h3 style={{ fontSize: "1.05rem", fontWeight: 600, color: "var(--verdigris)" }}>
-                  {"✓"} Buys antiques
-                  {store.buyingModel ? BUYING_MODEL_SUFFIX[store.buyingModel] ?? "" : ""}
-                </h3>
-                <p className="mt-2" style={{ color: "var(--ink-soft)" }}>
-                  Contact the store directly to arrange a sale -- items and
-                  pricing are reviewed on a case-by-case basis.
-                </p>
-              </div>
-            </section>
-          )}
         </main>
 
         <aside>
-          <div className="sidebar-card" style={{ position: "sticky", top: "20px" }}>
+          <div className="contact-panel" style={{ position: "sticky", top: "20px" }}>
             {store.latitude !== null && store.longitude !== null && (
               <div className="map-swatch">
                 <svg className="map-pin" viewBox="0 0 24 24" fill="currentColor">
@@ -264,50 +251,39 @@ export default async function StorePage({ params }: Props) {
                 </svg>
               </div>
             )}
-            <div className="p-5">
-              <h3 className="sidebar-label mb-2.5">Visit</h3>
+            <div className="contact-panel-inner">
+              <h2 className="contact-label mb-2">Visit</h2>
               {store.address && (
-                <div className="mb-3.5 text-sm">
+                <div className="mb-4 text-sm">
                   {store.address}
                   {directionsUrl && (
                     <>
                       <br />
-                      <a
-                        href={directionsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mono text-xs"
-                      >
-                        Get directions &rarr;
+                      <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="inline-link text-sm">
+                        Get directions
                       </a>
                     </>
                   )}
                 </div>
               )}
-              <div className="mb-4 flex flex-col gap-1.5 text-sm">
+              <div className="mb-4 flex flex-col gap-2 text-sm">
                 {store.phone && (
-                  <a href={`tel:${store.phone}`} className="mono">
+                  <a href={`tel:${store.phone}`} className="inline-link">
                     {store.phone}
                   </a>
                 )}
                 {store.website && (
-                  <a href={store.website} target="_blank" rel="noopener noreferrer nofollow">
-                    {store.website.replace(/^https?:\/\//, "").replace(/\/$/, "")} &#8599;
+                  <a href={store.website} target="_blank" rel="noopener noreferrer nofollow" className="inline-link">
+                    {store.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                   </a>
                 )}
               </div>
 
-              {store.businessModel === "appointment_only_showroom" && (
-                <div className="appt-note mb-4">
-                  By appointment only -- contact the store to schedule a visit.
-                </div>
-              )}
-
               {orderedHours && orderedHours.length > 0 && (
                 <>
                   <div className="divider mb-4" />
-                  <h3 className="sidebar-label mb-2.5">Hours</h3>
-                  <div className="hours-grid mono">
+                  <h2 className="contact-label mb-2">Hours</h2>
+                  <div className="hours-grid">
                     {orderedHours.map(({ day, time }) => (
                       <div key={day} className="contents">
                         <div className="day">{day.slice(0, 3)}</div>
@@ -315,6 +291,10 @@ export default async function StorePage({ params }: Props) {
                       </div>
                     ))}
                   </div>
+                  <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
+                    Posted hours don&apos;t imply walk-in access
+                    {appointmentOnly ? " -- this location is appointment-only." : "; call to confirm."}
+                  </p>
                 </>
               )}
             </div>
