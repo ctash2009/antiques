@@ -596,21 +596,7 @@ details.disclosure summary:hover {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-}
-.contact-panel .map-swatch {
-  height: 120px;
-  background: var(--color-primary-soft);
-  position: relative;
-  border-bottom: 1px solid var(--color-border);
-}
-.contact-panel .map-pin {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -70%);
-  width: 20px;
-  height: 20px;
-  color: var(--color-notice);
+  overflow: hidden; /* clips the embedded map iframe to the card's corners */
 }
 .contact-panel-inner {
   padding: var(--space-5, 20px);

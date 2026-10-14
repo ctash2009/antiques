@@ -9,6 +9,8 @@ import { getSiteUrl } from "@/lib/site";
 import { buyingPolicyBadges, isAppointmentOnly, researchStatusBadge, storeFormatBadges } from "@/lib/policy";
 import { Badges } from "@/components/Badges";
 import { EvidenceNote } from "@/components/EvidenceNote";
+import { StorePhoto } from "@/components/StorePhoto";
+import { StoreMap } from "@/components/StoreMap";
 
 // Listings are not prerendered at build time (34,928 of them) -- each
 // renders on first visit and is cached for `revalidate` seconds (ISR).
@@ -166,18 +168,7 @@ export default async function StorePage({ params }: Props) {
         <main>
           <section className="mb-9">
             {store.photo ? (
-              // eslint-disable-next-line @next/next/no-img-element -- external Google Business Profile photo, not an optimizable local asset
-              <img
-                src={store.photo}
-                alt={store.name}
-                style={{
-                  width: "100%",
-                  aspectRatio: "4/3",
-                  objectFit: "cover",
-                  borderRadius: "var(--radius-card)",
-                  border: "1px solid var(--color-border)",
-                }}
-              />
+              <StorePhoto src={store.photo} alt={store.name} variant="hero" />
             ) : (
               <div
                 style={{
@@ -249,11 +240,7 @@ export default async function StorePage({ params }: Props) {
         <aside>
           <div className="contact-panel" style={{ position: "sticky", top: "20px" }}>
             {store.latitude !== null && store.longitude !== null && (
-              <div className="map-swatch">
-                <svg className="map-pin" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" />
-                </svg>
-              </div>
+              <StoreMap latitude={store.latitude} longitude={store.longitude} name={store.name} />
             )}
             <div className="contact-panel-inner">
               <h2 className="contact-label mb-2">Visit</h2>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { StoreCard } from "@/lib/stores";
 import { buyingPolicyBadges, researchStatusBadge, storeFormatBadges } from "@/lib/policy";
 import { Badges } from "./Badges";
+import { StorePhoto } from "./StorePhoto";
 
 // Shared result-row used on city and search pages. Hierarchy per the
 // design guidelines: name -> location -> specialty summary -> buying/visit
@@ -17,8 +18,7 @@ export function ResultRow({ store, href }: { store: StoreCard; href: string }) {
     <Link href={href} className="result-row">
       <div className="thumb">
         {store.photo ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external Google Business Profile photo
-          <img src={store.photo} alt="" />
+          <StorePhoto src={store.photo} alt="" variant="thumb" />
         ) : (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M4 18V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9M4 18h16M4 18v2M20 18v2M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
